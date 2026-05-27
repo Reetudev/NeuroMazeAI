@@ -1,7 +1,2 @@
 streamlit
-streamlit-option-menu
-streamlit-lottie
 pandas
-plotly
-pygame
-openai
