@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<style>
+
+body{
+    margin:0;
+    background:black;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.loader{
+    width:150px;
+    height:150px;
+    border:10px solid #111;
+    border-top:10px solid cyan;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+    100%{
+        transform:rotate(360deg);
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="loader"></div>
+
+</body>
+</html>
