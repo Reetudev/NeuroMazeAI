@@ -1,138 +1,136 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import random
+import json
+import os
+import hashlib
 
-# PAGE CONFIG
+# ==========================================
+# 1. USER MANAGEMENT SYSTEM
+# ==========================================
+
+USER_DB_FILE = "users.json"
+
+def load_users():
+    if not os.path.exists(USER_DB_FILE):
+        with open(USER_DB_FILE, "w") as f:
+            json.dump({}, f)
+        return {}
+    try:
+        with open(USER_DB_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_users(users):
+    with open(USER_DB_FILE, "w") as f:
+        json.dump(users, f)
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# ==========================================
+# 2. PAGE CONFIG & SESSION STATES
+# ==========================================
+
 st.set_page_config(
     page_title="NeuroMaze AI - Toy Edition",
     page_icon="🧠",
     layout="wide"
 )
 
+# Initialize Session States
+if "page" not in st.session_state:
+    st.session_state.page = "home"
+    
+if "score" not in st.session_state:
+    st.session_state.score = 0
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
+
+if "sys_q_idx" not in st.session_state:
+    st.session_state.sys_q_idx = random.randint(0, 7) # Adjusted for 8 questions
+    
+if "code_q_idx" not in st.session_state:
+    st.session_state.code_q_idx = random.randint(0, 7)
+    
+if "cloud_q_idx" not in st.session_state:
+    st.session_state.cloud_q_idx = random.randint(0, 7)
+
+# Function to update score in database
+def update_score_in_db(new_score):
+    users = load_users()
+    email = st.session_state.user_email
+    if email in users:
+        users[email]['score'] = new_score
+        save_users(users)
+
 # ==========================================
-# 1. ANIMATED TOYS (CSS/HTML)
+# 3. ANIMATED TOYS (CSS/HTML)
 # ==========================================
 
-# Function to render the toys
 def render_toy(toy_type):
-    # CSS Styles for Toys
     st.markdown(f"""
     <style>
-        /* Container to center the toy */
         .toy-container {{
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 150px;
-            margin-bottom: 20px;
-            perspective: 200px;
+            display: flex; justify-content: center; align-items: center;
+            height: 150px; margin-bottom: 20px; perspective: 200px;
         }}
-        
-        /* --- TOY DEFINITIONS --- */
-
-        /* 1. ROBOT DOLL (Home) */
         .robot-toy {{
-            width: 60px; height: 80px;
-            background: #00f2ff;
-            border-radius: 10px;
-            position: relative;
-            animation: robot-dance 1s infinite alternate;
+            width: 60px; height: 80px; background: #00f2ff; border-radius: 10px;
+            position: relative; animation: robot-dance 1s infinite alternate;
             box-shadow: 0 0 15px #00f2ff;
         }}
-        .robot-toy::before {{ /* Head */
-            content: ''; position: absolute; top: -30px; left: 10px;
-            width: 40px; height: 30px; background: #00f2ff;
-            border-radius: 10px 10px 0 0;
-        }}
-        .robot-toy::after {{ /* Eyes */
-            content: ''; position: absolute; top: -20px; left: 20px;
-            width: 20px; height: 10px; background: #000;
-            box-shadow: 5px 0 0 #fff;
-        }}
-        @keyframes robot-dance {{
-            0% {{ transform: rotate(-10deg) translateY(0); }}
-            100% {{ transform: rotate(10deg) translateY(-10px); }}
-        }}
+        .robot-toy::before {{ content: ''; position: absolute; top: -30px; left: 10px; width: 40px; height: 30px; background: #00f2ff; border-radius: 10px 10px 0 0; }}
+        .robot-toy::after {{ content: ''; position: absolute; top: -20px; left: 20px; width: 20px; height: 10px; background: #000; box-shadow: 5px 0 0 #fff; }}
+        @keyframes robot-dance {{ 0% {{ transform: rotate(-10deg) translateY(0); }} 100% {{ transform: rotate(10deg) translateY(-10px); }} }}
 
-        /* 2. SPINNING TOP (System Design) */
         .spinner-toy {{
-            width: 0; height: 0;
-            border-left: 30px solid transparent;
-            border-right: 30px solid transparent;
-            border-bottom: 60px solid #ff0055;
-            animation: spin-me 2s infinite linear;
-            filter: drop-shadow(0 0 10px #ff0055);
+            width: 0; height: 0; border-left: 30px solid transparent;
+            border-right: 30px solid transparent; border-bottom: 60px solid #ff0055;
+            animation: spin-me 2s infinite linear; filter: drop-shadow(0 0 10px #ff0055);
         }}
-        @keyframes spin-me {{
-            0% {{ transform: rotate(0deg); }}
-            100% {{ transform: rotate(360deg); }}
-        }}
+        @keyframes spin-me {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
 
-        /* 3. BOUNCING BALL (Code Breaker) */
         .ball-toy {{
-            width: 50px; height: 50px;
-            background: radial-gradient(circle at 10px 10px, #fff, #8c00ff);
-            border-radius: 50%;
-            animation: bounce-me 0.6s infinite alternate;
+            width: 50px; height: 50px; background: radial-gradient(circle at 10px 10px, #fff, #8c00ff);
+            border-radius: 50%; animation: bounce-me 0.6s infinite alternate;
             box-shadow: 0 0 20px #8c00ff;
         }}
-        @keyframes bounce-me {{
-            0% {{ transform: translateY(0) scaleX(1.1); }}
-            100% {{ transform: translateY(-40px) scaleX(1); }}
-        }}
+        @keyframes bounce-me {{ 0% {{ transform: translateY(0) scaleX(1.1); }} 100% {{ transform: translateY(-40px) scaleX(1); }} }}
 
-        /* 4. WOBBLING DOLL (Cloud) */
         .doll-toy {{
-            width: 60px; height: 80px;
-            background: #ffcc00;
-            border-radius: 30px 30px 10px 10px;
-            position: relative;
-            animation: wobble-me 2s infinite ease-in-out;
-            box-shadow: 0 0 15px #ffcc00;
+            width: 60px; height: 80px; background: #ffcc00;
+            border-radius: 30px 30px 10px 10px; position: relative;
+            animation: wobble-me 2s infinite ease-in-out; box-shadow: 0 0 15px #ffcc00;
         }}
-        .doll-toy::before {{ /* Head */
-            content: ''; position: absolute; top: -25px; left: 10px;
-            width: 40px; height: 40px; background: #fff;
-            border-radius: 50%; border: 3px solid #ffcc00;
-        }}
-        @keyframes wobble-me {{
-            0%, 100% {{ transform: rotate(-15deg); }}
-            50% {{ transform: rotate(15deg); }}
-        }}
+        .doll-toy::before {{ content: ''; position: absolute; top: -25px; left: 10px; width: 40px; height: 40px; background: #fff; border-radius: 50%; border: 3px solid #ffcc00; }}
+        @keyframes wobble-me {{ 0%, 100% {{ transform: rotate(-15deg); }} 50% {{ transform: rotate(15deg); }} }}
 
-        /* 5. FLOATING CUBE (Generic) */
         .cube-toy {{
-            width: 50px; height: 50px;
-            background: linear-gradient(45deg, #00f2ff, #ff0055);
+            width: 50px; height: 50px; background: linear-gradient(45deg, #00f2ff, #ff0055);
             animation: float-me 3s infinite ease-in-out;
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.5);
-            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.5); border-radius: 5px;
         }}
-        @keyframes float-me {{
-            0%, 100% {{ transform: translateY(0) rotate(0deg); }}
-            50% {{ transform: translateY(-20px) rotate(180deg); }}
-        }}
+        @keyframes float-me {{ 0%, 100% {{ transform: translateY(0) rotate(0deg); }} 50% {{ transform: translateY(-20px) rotate(180deg); }} }}
         
-        /* 6. PULSING STAR */
         .star-toy {{
-            font-size: 60px;
-            color: #ff0055;
-            animation: pulse-star 1s infinite alternate;
+            font-size: 60px; color: #ff0055; animation: pulse-star 1s infinite alternate;
             text-shadow: 0 0 20px #ff0055;
         }}
-        @keyframes pulse-star {{
-            0% {{ transform: scale(0.8) rotate(0deg); opacity: 0.7; }}
-            100% {{ transform: scale(1.2) rotate(20deg); opacity: 1; }}
-        }}
+        @keyframes pulse-star {{ 0% {{ transform: scale(0.8) rotate(0deg); opacity: 0.7; }} 100% {{ transform: scale(1.2) rotate(20deg); opacity: 1; }} }}
     </style>
     """, unsafe_allow_html=True)
     
-    # HTML to render specific toy
     html = f"<div class='toy-container'><div class='{toy_type}'></div></div>"
     st.markdown(html, unsafe_allow_html=True)
 
 # ==========================================
-# 2. DATA: QUESTION BANKS WITH TOY TYPES
+# 4. DATA: QUESTION BANKS
 # ==========================================
 
 system_questions = [
@@ -169,7 +167,7 @@ cloud_questions = [
 ]
 
 # ==========================================
-# 3. CSS & THEME (Glassmorphism)
+# 5. CSS & THEME (Glassmorphism)
 # ==========================================
 
 st.markdown("""
@@ -237,191 +235,243 @@ st.markdown("""
         font-family: 'Orbitron', sans-serif; text-shadow: 0 0 10px rgba(255, 0, 85, 0.5);
     }
     
+    /* Login Specific Styles */
+    .login-input input {
+        background: rgba(255,255,255,0.1) !important;
+        border: 1px solid #00f2ff !important;
+        color: #fff !important;
+        border-radius: 10px;
+    }
+    
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 4. SESSION STATES
-# ==========================================
-
-if "page" not in st.session_state:
-    st.session_state.page = "home"
-    
-if "score" not in st.session_state:
-    st.session_state.score = 0
-    
-if "sys_q_idx" not in st.session_state:
-    st.session_state.sys_q_idx = random.randint(0, len(system_questions)-1)
-    
-if "code_q_idx" not in st.session_state:
-    st.session_state.code_q_idx = random.randint(0, len(code_questions)-1)
-    
-if "cloud_q_idx" not in st.session_state:
-    st.session_state.cloud_q_idx = random.randint(0, len(cloud_questions)-1)
-
 
 # ==========================================
-# 5. UI RENDERING
+# 6. MAIN APP FLOW
 # ==========================================
 
-# HERO SECTION
-st.markdown("""
-<div class='glass-card' style='text-align: center; border: none; background: transparent;'>
-    <h1 class='hero-title'>NEUROMAZE AI</h1>
-    <p style='color: #aaa; letter-spacing: 1px;'>COMPETITION EDITION • FUN MODE</p>
-</div>
-""", unsafe_allow_html=True)
+# --- LOGOUT BUTTON IN SIDEBAR ---
+if st.session_state.logged_in:
+    with st.sidebar:
+        st.markdown(f"### 👤 Welcome")
+        st.write(f"**{st.session_state.user_email}**")
+        if st.button("🚪 LOGOUT"):
+            # Save score before logout
+            update_score_in_db(st.session_state.score)
+            st.session_state.logged_in = False
+            st.session_state.user_email = ""
+            st.session_state.score = 0
+            st.rerun()
 
-# TEAM SECTION
-st.markdown("""
-<div class='glass-card' style='text-align: center; margin-top: -20px;'>
-    <h3 style='color: #ff0055; margin: 0;'>TEAM NEUROMAZE</h3>
-    <p style='font-size: 1.1rem; margin-top: 5px;'>
-        🤩 REETU &nbsp; 💗 MANJULA &nbsp; 🚀 SANJANA &nbsp; 😎 PUSHPA
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-# --- HOME PAGE ---
-if st.session_state.page == "home":
+# --- LOGIN / SIGNUP PAGE ---
+if not st.session_state.logged_in:
     
-    # Render Robot Toy on Home
+    st.markdown("<div class='glass-card' style='text-align: center; border: none; background: transparent;'><h1 class='hero-title'>NEUROMAZE AI</h1></div>", unsafe_allow_html=True)
     render_toy("robot-toy")
     
+    st.markdown("<div class='glass-card' style='text-align: center;'><h2 style='color: #00f2ff;'>🔐 ACCESS PORTAL</h2><p>Login or Sign Up to save your progress!</p></div>", unsafe_allow_html=True)
+    
+    col_l, col_r = st.columns([1, 1])
+    
+    with col_l:
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.subheader("🚀 LOGIN")
+        email = st.text_input("Email", key="login_email", placeholder="Enter your email")
+        password = st.text_input("Password", type="password", key="login_pass", placeholder="Enter password")
+        
+        if st.button("🔓 ENTER MAZE"):
+            users = load_users()
+            hashed = hash_password(password)
+            if email in users and users[email]["password"] == hashed:
+                st.session_state.logged_in = True
+                st.session_state.user_email = email
+                st.session_state.score = users[email].get("score", 0) # Load saved score
+                st.success("Login Successful!")
+                st.rerun()
+            else:
+                st.error("Invalid Email or Password")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col_r:
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.subheader("✨ SIGN UP")
+        new_email = st.text_input("New Email", key="signup_email", placeholder="Choose an email")
+        new_pass = st.text_input("New Password", type="password", key="signup_pass", placeholder="Choose a password")
+        
+        if st.button("📝 CREATE ACCOUNT"):
+            if new_email and new_pass:
+                users = load_users()
+                if new_email in users:
+                    st.warning("User already exists! Please Login.")
+                else:
+                    users[new_email] = {
+                        "password": hash_password(new_pass),
+                        "score": 0
+                    }
+                    save_users(users)
+                    st.success("Account Created! Please Login now.")
+            else:
+                st.error("Please fill all fields")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# --- MAIN PUZZLE APP (Only if Logged In) ---
+else:
+    
+    # HERO SECTION
     st.markdown("""
-    <div class='glass-card' style='text-align: center;'>
-        <h2 style='color: #00f2ff;'>WELCOME, BCA BUDDIES</h2>
-        <p>Choose your path. Solve challenges. Have fun!</p>
+    <div class='glass-card' style='text-align: center; border: none; background: transparent;'>
+        <h1 class='hero-title'>NEUROMAZE AI</h1>
+        <p style='color: #aaa; letter-spacing: 1px;'>COMPETITION EDITION • FUN MODE</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button("🧠 SYSTEM DESIGN"):
-            st.session_state.page = "system"
-            st.rerun()
-            
-    with col2:
-        if st.button("🔐 AI CODE BREAKER"):
-            st.session_state.page = "code"
-            st.rerun()
-            
-    with col3:
-        if st.button("☁️ CLOUD MAZE"):
-            st.session_state.page = "cloud"
-            st.rerun()
-            
-    st.write("")
-    st.markdown(f"<div class='glass-card score-card'>CURRENT SCORE: {st.session_state.score}</div>", unsafe_allow_html=True)
+
+    # TEAM SECTION
+    st.markdown("""
+    <div class='glass-card' style='text-align: center; margin-top: -20px;'>
+        <h3 style='color: #ff0055; margin: 0;'>TEAM NEUROMAZE</h3>
+        <p style='font-size: 1.1rem; margin-top: 5px;'>
+            🤩 REETU &nbsp; 💗 MANJULA &nbsp; 🚀 SANJANA &nbsp; 😎 PUSHPA
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # --- HOME PAGE ---
+    if st.session_state.page == "home":
+        
+        render_toy("robot-toy")
+        
+        st.markdown("""
+        <div class='glass-card' style='text-align: center;'>
+            <h2 style='color: #00f2ff;'>WELCOME, BCA BUDDIES</h2>
+            <p>Choose your path. Solve challenges. Have fun!</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            if st.button("🧠 SYSTEM DESIGN"):
+                st.session_state.page = "system"
+                st.rerun()
+                
+        with col2:
+            if st.button("🔐 AI CODE BREAKER"):
+                st.session_state.page = "code"
+                st.rerun()
+                
+        with col3:
+            if st.button("☁️ CLOUD MAZE"):
+                st.session_state.page = "cloud"
+                st.rerun()
+                
+        st.write("")
+        st.markdown(f"<div class='glass-card score-card'>CURRENT SCORE: {st.session_state.score}</div>", unsafe_allow_html=True)
 
 
-# --- SYSTEM DESIGN PAGE ---
-elif st.session_state.page == "system":
-    
-    q_data = system_questions[st.session_state.sys_q_idx]
-    
-    # Render unique toy for this question
-    render_toy(q_data['toy'])
-    
-    st.markdown("<div class='glass-card'><h2 style='color: #00f2ff;'>SYSTEM DESIGN CHALLENGE</h2></div>", unsafe_allow_html=True)
-    st.warning(f"**QUESTION:**\n\n{q_data['q']}")
-    answer = st.radio("Select Answer:", q_data['options'], key="sys_radio")
-    
-    col_a, col_b = st.columns([1, 1])
-    with col_a:
-        if st.button("✅ SUBMIT", key="sys_submit"):
-            if answer == q_data['ans']:
-                st.success("✅ Correct! System Stable.")
-                st.balloons()
-                st.session_state.score += 10
+    # --- SYSTEM DESIGN PAGE ---
+    elif st.session_state.page == "system":
+        
+        q_data = system_questions[st.session_state.sys_q_idx]
+        render_toy(q_data['toy'])
+        
+        st.markdown("<div class='glass-card'><h2 style='color: #00f2ff;'>SYSTEM DESIGN CHALLENGE</h2></div>", unsafe_allow_html=True)
+        st.warning(f"**QUESTION:**\n\n{q_data['q']}")
+        answer = st.radio("Select Answer:", q_data['options'], key="sys_radio")
+        
+        col_a, col_b = st.columns([1, 1])
+        with col_a:
+            if st.button("✅ SUBMIT", key="sys_submit"):
+                if answer == q_data['ans']:
+                    st.success("✅ Correct! System Stable.")
+                    st.balloons()
+                    st.session_state.score += 10
+                    update_score_in_db(st.session_state.score) # SAVE SCORE
+                    st.session_state.sys_q_idx = random.randint(0, len(system_questions)-1)
+                else:
+                    st.error("❌ System Failure. Try again.")
+                    
+        with col_b:
+            if st.button("🔄 NEXT PUZZLE"):
                 st.session_state.sys_q_idx = random.randint(0, len(system_questions)-1)
-            else:
-                st.error("❌ System Failure. Try again.")
-                
-    with col_b:
-        if st.button("🔄 NEXT PUZZLE"):
-            st.session_state.sys_q_idx = random.randint(0, len(system_questions)-1)
+                st.rerun()
+
+        st.info(f"💡 **INDUSTRY INSIGHT:** {q_data['info']}")
+        if st.button("🏠 HOME"):
+            st.session_state.page = "home"
             st.rerun()
 
-    st.info(f"💡 **INDUSTRY INSIGHT:** {q_data['info']}")
-    if st.button("🏠 HOME"):
-        st.session_state.page = "home"
-        st.rerun()
 
-
-# --- CODE BREAKER PAGE ---
-elif st.session_state.page == "code":
-    
-    q_data = code_questions[st.session_state.code_q_idx]
-    
-    # Render unique toy for this question
-    render_toy(q_data['toy'])
-    
-    st.markdown("<div class='glass-card'><h2 style='color: #00ff00;'>AI CODE BREAKER</h2></div>", unsafe_allow_html=True)
-    st.warning(f"**CHALLENGE:**\n\n{q_data['q']}")
-    answer = st.radio("Decode Answer:", q_data['options'], key="code_radio")
-    
-    col_a, col_b = st.columns([1, 1])
-    with col_a:
-        if st.button("⚡ DECODE", key="code_submit"):
-            if answer == q_data['ans']:
-                st.success("🔓 Access Granted.")
-                st.balloons()
-                st.session_state.score += 10
+    # --- CODE BREAKER PAGE ---
+    elif st.session_state.page == "code":
+        
+        q_data = code_questions[st.session_state.code_q_idx]
+        render_toy(q_data['toy'])
+        
+        st.markdown("<div class='glass-card'><h2 style='color: #00ff00;'>AI CODE BREAKER</h2></div>", unsafe_allow_html=True)
+        st.warning(f"**CHALLENGE:**\n\n{q_data['q']}")
+        answer = st.radio("Decode Answer:", q_data['options'], key="code_radio")
+        
+        col_a, col_b = st.columns([1, 1])
+        with col_a:
+            if st.button("⚡ DECODE", key="code_submit"):
+                if answer == q_data['ans']:
+                    st.success("🔓 Access Granted.")
+                    st.balloons()
+                    st.session_state.score += 10
+                    update_score_in_db(st.session_state.score) # SAVE SCORE
+                    st.session_state.code_q_idx = random.randint(0, len(code_questions)-1)
+                else:
+                    st.error("🔒 Firewall Blocked. Incorrect.")
+                    
+        with col_b:
+            if st.button("🔄 NEXT HACK"):
                 st.session_state.code_q_idx = random.randint(0, len(code_questions)-1)
-            else:
-                st.error("🔒 Firewall Blocked. Incorrect.")
-                
-    with col_b:
-        if st.button("🔄 NEXT HACK"):
-            st.session_state.code_q_idx = random.randint(0, len(code_questions)-1)
+                st.rerun()
+
+        st.info(f"💡 **LOGIC INSIGHT:** {q_data['info']}")
+        if st.button("🏠 HOME"):
+            st.session_state.page = "home"
             st.rerun()
 
-    st.info(f"💡 **LOGIC INSIGHT:** {q_data['info']}")
-    if st.button("🏠 HOME"):
-        st.session_state.page = "home"
-        st.rerun()
 
-
-# --- CLOUD MAZE PAGE ---
-elif st.session_state.page == "cloud":
-    
-    q_data = cloud_questions[st.session_state.cloud_q_idx]
-    
-    # Render unique toy for this question
-    render_toy(q_data['toy'])
-    
-    st.markdown("<div class='glass-card'><h2 style='color: #ff0055;'>CLOUD ARCHITECTURE MAZE</h2></div>", unsafe_allow_html=True)
-    st.warning(f"**MISSION:**\n\n{q_data['q']}")
-    answer = st.radio("Deploy Solution:", q_data['options'], key="cloud_radio")
-    
-    col_a, col_b = st.columns([1, 1])
-    with col_a:
-        if st.button("☁️ DEPLOY", key="cloud_submit"):
-            if answer == q_data['ans']:
-                st.success("🚀 Deployment Successful.")
-                st.balloons()
-                st.session_state.score += 10
+    # --- CLOUD MAZE PAGE ---
+    elif st.session_state.page == "cloud":
+        
+        q_data = cloud_questions[st.session_state.cloud_q_idx]
+        render_toy(q_data['toy'])
+        
+        st.markdown("<div class='glass-card'><h2 style='color: #ff0055;'>CLOUD ARCHITECTURE MAZE</h2></div>", unsafe_allow_html=True)
+        st.warning(f"**MISSION:**\n\n{q_data['q']}")
+        answer = st.radio("Deploy Solution:", q_data['options'], key="cloud_radio")
+        
+        col_a, col_b = st.columns([1, 1])
+        with col_a:
+            if st.button("☁️ DEPLOY", key="cloud_submit"):
+                if answer == q_data['ans']:
+                    st.success("🚀 Deployment Successful.")
+                    st.balloons()
+                    st.session_state.score += 10
+                    update_score_in_db(st.session_state.score) # SAVE SCORE
+                    st.session_state.cloud_q_idx = random.randint(0, len(cloud_questions)-1)
+                else:
+                    st.error("⚠️ Infrastructure Error.")
+                    
+        with col_b:
+            if st.button("🔄 NEW MISSION"):
                 st.session_state.cloud_q_idx = random.randint(0, len(cloud_questions)-1)
-            else:
-                st.error("⚠️ Infrastructure Error.")
-                
-    with col_b:
-        if st.button("🔄 NEW MISSION"):
-            st.session_state.cloud_q_idx = random.randint(0, len(cloud_questions)-1)
+                st.rerun()
+
+        st.info(f"💡 **CLOUD INSIGHT:** {q_data['info']}")
+        if st.button("🏠 HOME"):
+            st.session_state.page = "home"
             st.rerun()
 
-    st.info(f"💡 **CLOUD INSIGHT:** {q_data['info']}")
-    if st.button("🏠 HOME"):
-        st.session_state.page = "home"
-        st.rerun()
-
-# FOOTER
-st.write("---")
-st.markdown(f"""
-<div style='text-align: center; padding: 20px; opacity: 0.6;'>
-    <p>⚡ NeuroMaze AI • Toy Edition • {st.session_state.score} Points Scored ⚡</p>
-</div>
-""", unsafe_allow_html=True)
+    # FOOTER
+    st.write("---")
+    st.markdown(f"""
+    <div style='text-align: center; padding: 20px; opacity: 0.6;'>
+        <p>⚡ NeuroMaze AI • Toy Edition • {st.session_state.score} Points Scored ⚡</p>
+    </div>
+    """, unsafe_allow_html=True)
